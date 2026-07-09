@@ -19,16 +19,6 @@ EXPORT_HEADER = [
 ]
 
 
-def fetch_bookings_raw(db: Session, room_id: int) -> list[Booking]:
-    """Load every booking for a single room, ordered by id."""
-    return (
-        db.query(Booking)
-        .filter(Booking.room_id == room_id)
-        .order_by(Booking.id.asc())
-        .all()
-    )
-
-
 def _fetch_scoped(db: Session, org_id: int, user_id: int | None, room_id: int | None) -> list[Booking]:
     query = db.query(Booking).join(Room).filter(Room.org_id == org_id)
     if user_id is not None:
@@ -45,13 +35,7 @@ def generate_export(
     room_id: int | None,
     include_all: bool,
 ) -> str:
-    if include_all:
-        if room_id is not None:
-            rows = fetch_bookings_raw(db, room_id)
-        else:
-            rows = _fetch_scoped(db, org_id, None, None)
-    else:
-        rows = _fetch_scoped(db, org_id, user_id, room_id)
+    rows = _fetch_scoped(db, org_id, None if include_all else user_id, room_id)
 
     buffer = io.StringIO()
     writer = csv.writer(buffer)

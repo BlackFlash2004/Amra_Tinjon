@@ -54,6 +54,7 @@ def create_room(
     db.add(room)
     db.commit()
     db.refresh(room)
+    cache.invalidate_report(admin.org_id)
     return _serialize_room(room)
 
 
@@ -66,14 +67,17 @@ def availability(
 ):
     room = _get_org_room(db, room_id, user.org_id)
 
-    cached = cache.get_availability(room.id, date)
-    if cached is not None:
-        return cached
-
     try:
         day = datetime.strptime(date, "%Y-%m-%d").date()
     except ValueError:
         raise AppError(400, "INVALID_BOOKING_WINDOW", "Invalid date")
+
+    # Key the cache by the canonical ISO date so invalidation (which uses
+    # start.date().isoformat()) always hits the entry.
+    cache_date = day.isoformat()
+    cached = cache.get_availability(room.id, cache_date)
+    if cached is not None:
+        return cached
 
     day_start = datetime.combine(day, time.min)
     day_end = day_start + timedelta(days=1)
